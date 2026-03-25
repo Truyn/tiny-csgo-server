@@ -10,6 +10,9 @@
 #include <optional>
 #include <stdexcept>
 #include <functional>
+#include <cctype>
+#include <cstdint>
+#include <cstdio>
 
 // Simple commandline argument parser for tiny csgo server, with strict option type check
 
@@ -136,7 +139,7 @@ public:
 			{
 				for (char& ch : strValue)
 					if (ch >= 'A' && ch <= 'Z')
-						ch = std::tolower(ch);
+						ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
 
 				sscanf(strValue.c_str(), "0x%llx", &value);
 			}
