@@ -6,7 +6,9 @@
 #endif
 
 #include <asio.hpp>
+#include <array>
 #include <chrono>
+#include <limits>
 #include "argparser.hpp"
 #include "steamauth.hpp"
 #include "GCClient.hpp"
@@ -78,25 +80,30 @@ private:
 
 	asio::awaitable<void>	ProcessA2sRequest(udp::socket& socket)
 	{
+		std::array<char, 512> writeMem{};
+		bf_write writeBuf(writeMem.data(), static_cast<int>(writeMem.size()));
+		asio::steady_timer timer(g_IoContext);
+
 		while (true)
 		{
 			//Request challenge here, and send A2S_INFO and A2S_PLAYER request when challenge is received
-			m_WriteBuf.Reset();
-			m_WriteBuf.WriteLong(CONNECTIONLESS_HEADER);
-			m_WriteBuf.WriteByte(A2S_INFO);
-			m_WriteBuf.WriteString(A2S_INFO_REQUEST_BODY);
-			co_await socket.async_send_to(asio::buffer(m_Buf, m_WriteBuf.GetNumBytesWritten()), m_RedirectEdp, asio::use_awaitable);
+			writeBuf.Reset();
+			writeBuf.WriteLong(CONNECTIONLESS_HEADER);
+			writeBuf.WriteByte(A2S_INFO);
+			writeBuf.WriteString(A2S_INFO_REQUEST_BODY);
+			co_await socket.async_send_to(asio::buffer(writeMem.data(), writeBuf.GetNumBytesWritten()), m_RedirectEdp, asio::use_awaitable);
 
-			asio::steady_timer timer(g_IoContext, 10s);
+			timer.expires_after(10s);
 			co_await timer.async_wait(asio::use_awaitable);
 		}
 	}
 
 	asio::awaitable<void> PrintAuthedCount()
 	{
+		asio::steady_timer timer(g_IoContext);
 		while (true)
 		{
-			asio::steady_timer timer(g_IoContext, 60s);
+			timer.expires_after(60s);
 			co_await timer.async_wait(asio::use_awaitable);
 
 			printf("Total authenticated players: %d\n", GetAuthHolder().GetAuthedPlayersCount());
@@ -106,6 +113,7 @@ private:
 	//Simulate server frame
 	asio::awaitable<void> RunFrame()
 	{
+		asio::steady_timer timer(g_IoContext);
 		while (true)
 		{
 			SteamGameServer_RunCallbacks();
@@ -115,7 +123,7 @@ private:
 			if (Steam3Server().GetGSSteamID().IsValid())
 				UpdateGCInformation();
 
-			asio::steady_timer timer(g_IoContext, 500ms);
+			timer.expires_after(500ms);
 			co_await timer.async_wait(asio::use_awaitable);
 		}
 	}
@@ -216,7 +224,6 @@ private:
 			ResetReadBuffer();
 
 			udp::endpoint edp;
-			co_await socket.async_wait(socket.wait_read, asio::use_awaitable);
 			m_LastReceivedPacketLength = co_await socket.async_receive_from(asio::buffer(m_Buf), edp, asio::use_awaitable);
 
 			//This is the packet from our redirect server
@@ -375,7 +382,7 @@ private:
 					m_WriteBuf.WriteLong(m_VersionInt);
 					m_WriteBuf.WriteString(GetServerInfoHolder().ServerPasswordNeeded() ? "friends" : "public");
 					m_WriteBuf.WriteByte(GetServerInfoHolder().ServerPasswordNeeded());
-					m_WriteBuf.WriteLongLong((uint64)-1); //Lobby id
+					m_WriteBuf.WriteLongLong(std::numeric_limits<uint64_t>::max()); //Lobby id
 					m_WriteBuf.WriteByte(SERVER_DCFRIENDSREQD);
 					m_WriteBuf.WriteByte(GetServerInfoHolder().ServerIsOfficial());
 				}

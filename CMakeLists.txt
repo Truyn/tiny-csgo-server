@@ -56,7 +56,6 @@ elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
         -Wno-volatile
         -Wno-format-security
         -Wno-register
-        -fcoroutines
     )
     
     add_link_options(-m32)
@@ -68,4 +67,3 @@ target_link_libraries(tiny-csgo-server ${STATIC_LIB_LIST})
 if(MSVC)
     set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT tiny-csgo-server)
 endif()
-
